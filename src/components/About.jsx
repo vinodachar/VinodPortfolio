@@ -1,66 +1,65 @@
-import Reveal from "./Reveal.jsx";
+import { useState } from "react";
+import { PERSPECTIVES } from "../data.js";
+import { scrollToTarget } from "../lib/motion.js";
+import SignalCanvas from "./SignalCanvas.jsx";
+import SignalText from "./SignalText.jsx";
+import { ArrowUpRight } from "./Icons.jsx";
 
-const CARDS = [
-  {
-    title: "Content at Scale",
-    body: "Kannada AI content reaching 3M+ average views — built for reach, made to stick.",
-    icon: "📡",
-  },
-  {
-    title: "VV Labs — AI Ad Studio",
-    body: "My AI video production studio making ads, brand films and object-talking videos for brands.",
-    icon: "🎬",
-  },
-  {
-    title: "AI Workshops",
-    body: "Hands-on AI training for schools, colleges and corporate teams — practical, not theoretical.",
-    icon: "🎓",
-  },
-  {
-    title: "Community Growth",
-    body: "30K+ engaged followers grown organically in months — no ads, just value.",
-    icon: "↗",
-  },
-];
+export default function About({ motion }) {
+  const [i, setI] = useState(0);
+  const p = PERSPECTIVES[i];
 
-export default function About() {
   return (
-    <section id="about" className="relative py-24 md:py-36">
-      <div className="mx-auto max-w-7xl px-5 md:px-8">
-        <Reveal>
-          <p className="eyebrow mb-4">About</p>
-          <h2 className="display-lg max-w-4xl">
-            Engineer by training.
-            <span className="text-accent"> Creator by obsession.</span>
-          </h2>
-        </Reveal>
+    <section id="about" className="about chapter">
+      <div className="section-label">
+        <span>01 / THE PERSON BEHIND THE CONTENT</span>
+        <span>ONE ENGINEER. THREE CONVERSATIONS.</span>
+      </div>
 
-        <Reveal delay={0.15}>
-          <p className="mt-8 max-w-3xl text-lg md:text-xl leading-relaxed text-muted">
-            I&apos;m an AI Content Creator and the founder of VV Labs, an AI ad
-            making studio. I turn complex AI tools into simple, practical,
-            viral-worthy content for a Kannada-speaking audience — and put the
-            same AI to work for businesses through AI-powered ads, video
-            editing for small brands, and hands-on AI workshops for schools,
-            colleges and corporate teams. It&apos;s all backed by a real
-            engineering background in cloud and automation.
+      <div className="about-grid">
+        <div className="signal-explorer">
+          <div className="signal-topline">
+            <span>THREE DISCIPLINES. ONE PERSPECTIVE.</span>
+            <span aria-hidden="true">0{i + 1} / 03</span>
+          </div>
+          <div className="signal-visual">
+            <SignalCanvas shape={p.shape} animate={motion} />
+            <span className="signal-center-label"><SignalText>{p.word}</SignalText></span>
+          </div>
+          <div className="signal-options" role="group" aria-label="Explore my disciplines">
+            {PERSPECTIVES.map((o, idx) => (
+              <button key={o.key} aria-pressed={idx === i} onClick={() => setI(idx)}>
+                {o.label}<span aria-hidden="true">↗</span>
+              </button>
+            ))}
+          </div>
+          <div className="signal-story" aria-live="polite" key={p.key}>
+            <h3>{p.title}</h3>
+            <p>{p.body}</p>
+            <a className="text-link" href={p.link.href} onClick={(e) => { e.preventDefault(); scrollToTarget(p.link.href); }}>
+              {p.link.text} <ArrowUpRight />
+            </a>
+          </div>
+          <p className="signal-hint">Choose a perspective.</p>
+        </div>
+
+        <div className="about-copy" data-reveal>
+          <h2>AI is the tool.<br /><em>People are the point.</em></h2>
+          <p className="lead">I connect content, community and engineering.</p>
+          <p>
+            By day I build and run cloud infrastructure. The rest of the time I’m turning the newest AI into
+            something a Kannada speaker can use tomorrow — on <strong className="copy-highlight">@ai.with.vi_</strong>,
+            through <strong className="copy-highlight">VV Labs</strong>, and in workshops with the business
+            communities I teach.
           </p>
-        </Reveal>
-
-        <div className="mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {CARDS.map((c, i) => (
-            <Reveal key={c.title} delay={0.1 + i * 0.1}>
-              <div className="card group h-full p-7 transition-colors duration-300 hover:border-accent/50">
-                <span className="text-2xl text-accent">{c.icon}</span>
-                <h3 className="mt-5 font-display text-lg font-semibold uppercase tracking-tight">
-                  {c.title}
-                </h3>
-                <p className="mt-3 text-sm leading-relaxed text-muted">
-                  {c.body}
-                </p>
-              </div>
-            </Reveal>
-          ))}
+          <a className="text-link" href="#journey" onClick={(e) => { e.preventDefault(); scrollToTarget("#journey"); }}>
+            Read my story <ArrowUpRight />
+          </a>
+          <div className="identity-notes">
+            <span>ENGINEER’S MIND.</span>
+            <span>CREATOR’S VOICE.</span>
+            <span>TEACHER’S PATIENCE.</span>
+          </div>
         </div>
       </div>
     </section>
