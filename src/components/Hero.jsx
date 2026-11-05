@@ -1,204 +1,152 @@
-import { useEffect, useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
-import { WHATSAPP } from "../constants.js";
+import { useEffect, useRef, useState } from "react";
+import { PORTRAIT, PROOF } from "../data.js";
+import { scrollToTarget } from "../lib/motion.js";
+import SignalText from "./SignalText.jsx";
+import { ArrowDown, ArrowUpRight } from "./Icons.jsx";
 
-/*
- * Headline options (swap the two lines below if preferred):
- *  1. "I Simplify AI" / "In Kannada, At Scale"   ← current
- *  2. "I Break Down AI" / "Millions Watch"
- *  3. "AI, Decoded" / "For 3M+ Viewers"
- */
-
-/** Lightweight drifting particle field with connecting lines. */
-function ParticleField() {
-  const canvasRef = useRef(null);
-
+/** Drifting light dust over the portrait — sells the "signal" mood. */
+function Dust({ animate }) {
+  const ref = useRef(null);
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    let raf;
-    let particles = [];
-
+    if (!animate) return;
+    const c = ref.current;
+    const ctx = c.getContext("2d");
+    let w, h, raf, visible = true;
+    const motes = Array.from({ length: 46 }, () => ({
+      x: Math.random(), y: Math.random(), r: Math.random() * 1.3 + 0.3,
+      v: Math.random() * 0.012 + 0.004, p: Math.random() * Math.PI * 2,
+    }));
     const resize = () => {
-      canvas.width = canvas.offsetWidth * devicePixelRatio;
-      canvas.height = canvas.offsetHeight * devicePixelRatio;
-      ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-      const count = Math.min(90, Math.floor(canvas.offsetWidth / 14));
-      particles = Array.from({ length: count }, () => ({
-        x: Math.random() * canvas.offsetWidth,
-        y: Math.random() * canvas.offsetHeight,
-        vx: (Math.random() - 0.5) * 0.35,
-        vy: (Math.random() - 0.5) * 0.35,
-        r: Math.random() * 1.6 + 0.4,
-      }));
+      const dpr = Math.min(devicePixelRatio || 1, 2);
+      w = c.offsetWidth; h = c.offsetHeight;
+      c.width = w * dpr; c.height = h * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
-
-    const tick = () => {
-      const w = canvas.offsetWidth;
-      const h = canvas.offsetHeight;
-      ctx.clearRect(0, 0, w, h);
-
-      for (const p of particles) {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < 0 || p.x > w) p.vx *= -1;
-        if (p.y < 0 || p.y > h) p.vy *= -1;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(62,159,255,0.5)";
-        ctx.fill();
-      }
-
-      // connect close particles
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const a = particles[i];
-          const b = particles[j];
-          const d = Math.hypot(a.x - b.x, a.y - b.y);
-          if (d < 120) {
-            ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
-            ctx.strokeStyle = `rgba(62,159,255,${0.14 * (1 - d / 120)})`;
-            ctx.stroke();
-          }
+    let last = performance.now();
+    const tick = (now) => {
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+      if (visible) {
+        ctx.clearRect(0, 0, w, h);
+        // slow scan band
+        const band = ((now / 9000) % 1.3) * h - 0.15 * h;
+        const g = ctx.createLinearGradient(0, band - 60, 0, band + 60);
+        g.addColorStop(0, "rgba(255,170,120,0)");
+        g.addColorStop(0.5, "rgba(255,170,120,0.06)");
+        g.addColorStop(1, "rgba(255,170,120,0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, band - 60, w, 120);
+        for (const m of motes) {
+          m.y -= m.v * dt * 6;
+          m.p += dt;
+          if (m.y < -0.02) { m.y = 1.02; m.x = Math.random(); }
+          const a = 0.25 + Math.sin(m.p * 1.7) * 0.2;
+          ctx.fillStyle = `rgba(241,228,210,${a})`;
+          ctx.beginPath();
+          ctx.arc(m.x * w + Math.sin(m.p) * 6, m.y * h, m.r, 0, Math.PI * 2);
+          ctx.fill();
         }
       }
       raf = requestAnimationFrame(tick);
     };
-
     resize();
-    tick();
+    raf = requestAnimationFrame(tick);
+    const io = new IntersectionObserver(([e]) => (visible = e.isIntersecting));
+    io.observe(c);
     window.addEventListener("resize", resize);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("resize", resize);
-    };
-  }, []);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 h-full w-full"
-      aria-hidden="true"
-    />
-  );
+    return () => { cancelAnimationFrame(raf); io.disconnect(); window.removeEventListener("resize", resize); };
+  }, [animate]);
+  return <canvas ref={ref} aria-hidden="true" />;
 }
 
-export default function Hero() {
-  const ref = useRef(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start start", "end start"],
-  });
-  // subtle parallax: content drifts up slower than the scroll
-  const y = useTransform(scrollYProgress, [0, 1], ["0%", "35%"]);
-  const opacity = useTransform(scrollYProgress, [0, 0.7], [1, 0]);
+export default function Hero({ motion }) {
+  const [hasPhoto, setHasPhoto] = useState(true);
+  const go = (e, href) => { e.preventDefault(); scrollToTarget(href); };
 
   return (
-    <section
-      id="top"
-      ref={ref}
-      className="relative flex min-h-screen items-center justify-center overflow-hidden"
-    >
-      {/* gradient mesh backdrop */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(60% 50% at 70% 20%, rgba(62,159,255,0.14) 0%, transparent 60%), radial-gradient(50% 40% at 20% 80%, rgba(62,159,255,0.08) 0%, transparent 60%), #0a0a0a",
-        }}
-      />
-      {/* faint grid texture */}
-      <div
-        className="absolute inset-0 opacity-[0.35]"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
-          backgroundSize: "72px 72px",
-          maskImage:
-            "radial-gradient(ellipse 80% 60% at 50% 40%, black 30%, transparent 75%)",
-        }}
-      />
-      <ParticleField />
-      {/* bottom fade into the next section */}
-      <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-ink" />
+    <>
+      <section className="hero" id="top">
+        <div className="hero-backdrop" aria-hidden="true">
+          <div className="portrait">
+            <div className="portrait-inner">
+              {hasPhoto ? (
+                <img
+                  src={PORTRAIT}
+                  alt=""
+                  width="1000"
+                  height="1250"
+                  fetchpriority="high"
+                  onError={() => setHasPhoto(false)}
+                />
+              ) : (
+                <div className="artifact"><i /><i /><i /></div>
+              )}
+              <Dust animate={motion} />
+            </div>
+          </div>
+        </div>
+        <div className="hero-grid" aria-hidden="true" />
 
-      <motion.div
-        style={{ y, opacity }}
-        className="relative z-10 mx-auto max-w-6xl px-5 md:px-8 text-center"
-      >
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.15 }}
-          className="eyebrow mb-6"
-        >
-          AI Content Creator · @ai.with.vi_
-        </motion.p>
+        <div className="hero-topline">
+          <span><i className="live-dot" /> CREATOR. EDUCATOR. ENGINEER.</span>
+          <span>BASED IN BENGALURU · SPEAKING KANNADA</span>
+        </div>
 
-        <h1 className="display-xl">
-          <motion.span
-            className="block"
-            initial={{ opacity: 0, y: 60 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.9, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          >
-            I Simplify AI
-          </motion.span>
-          <motion.span
-            className="block text-accent"
-            initial={{ opacity: 0, y: 60 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.9, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
-          >
-            In Kannada, At Scale
-          </motion.span>
-        </h1>
+        <div className="hero-side-note" aria-hidden="true">
+          <span>01 / PRESENCE</span>
+          <span>CONTENT<br />COMMUNITY<br />CLOUD &amp; MLOPS</span>
+        </div>
+        <div className="hero-side-note hero-side-right" aria-hidden="true">
+          <span>@AI.WITH.VI_</span>
+          <span>VERIFIED<br />45.7K FOLLOWERS<br />DAILY AI IN KANNADA</span>
+        </div>
 
-        <motion.p
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.75 }}
-          className="mx-auto mt-8 max-w-xl text-base md:text-lg text-muted"
-        >
-          AI Content Creator &amp; founder of VV Labs — AI ads, video editing,
-          workshops and AI-powered software &amp; websites that help brands
-          grow. 3M+ average views, one video at a time.
-        </motion.p>
+        <div className="hero-content">
+          <span className="hero-kicker"><SignalText>AI, MADE SIMPLE — IN KANNADA</SignalText></span>
+          <h1>
+            <span className="line-mask"><span className="reveal-line">Vinod <em>Achar</em></span></span>
+          </h1>
+          <div className="hero-description">
+            <p>
+              I make AI simple for Kannada speakers,<br className="desktop-break" /> and put it to work for businesses.
+            </p>
+            <div className="hero-actions">
+              <a className="pill-link" href="#work" onClick={(e) => go(e, "#work")}>
+                <SignalText>Explore my work</SignalText> <ArrowDown />
+              </a>
+              <a className="text-link" href="#contact" onClick={(e) => go(e, "#contact")}>
+                <SignalText>Start a conversation</SignalText> <ArrowUpRight />
+              </a>
+            </div>
+          </div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.95 }}
-          className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
-        >
-          <a href={WHATSAPP} target="_blank" rel="noreferrer" className="btn-primary">
-            Message on WhatsApp
+        <div className="hero-bottom">
+          <a href="#about" onClick={(e) => go(e, "#about")}>
+            <span className="scroll-line" /> SCROLL TO DISCOVER <ArrowDown size={12} />
           </a>
-          <a href="#content" className="btn-ghost">
-            View My Work
-          </a>
-        </motion.div>
-      </motion.div>
+          <span>ENGINEERING SINCE 2022 · CREATING SINCE 2026</span>
+          <span className="hero-edition">AN ONGOING EXPLORATION ↗</span>
+        </div>
+      </section>
 
-      {/* scroll indicator */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.6, duration: 1 }}
-        className="absolute bottom-8 left-1/2 z-10 -translate-x-1/2 flex flex-col items-center gap-3"
-      >
-        <span className="font-display text-[10px] uppercase tracking-wideish text-muted">
-          Scroll to see the work
-        </span>
-        <motion.span
-          className="block h-10 w-px bg-gradient-to-b from-accent to-transparent"
-          animate={{ scaleY: [1, 0.4, 1], opacity: [1, 0.4, 1] }}
-          transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
-          style={{ transformOrigin: "top" }}
-        />
-      </motion.div>
-    </section>
+      <section className="proof-strip" aria-label="Highlights">
+        {PROOF.map((p) => (
+          <div key={p.label}>
+            <strong>
+              <span style={{ color: "inherit" }} data-count={p.value} data-decimals={p.decimals}>
+                {p.value.toFixed(p.decimals)}
+              </span>
+              <span>{p.suffix}</span>
+            </strong>
+            <p>{p.label}</p>
+          </div>
+        ))}
+        <a href="#impact" onClick={(e) => go(e, "#impact")}>
+          <span>THE CONTENT.<br />THE REAL-WORLD IMPACT.</span>
+          <ArrowUpRight />
+        </a>
+      </section>
+    </>
   );
 }
